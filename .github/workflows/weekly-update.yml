@@ -1,0 +1,55 @@
+name: "Anthony: Weekly Update"
+
+on:
+  schedule:
+    - cron: "0 8 * * 1" # Monday 8am UTC (10am CET)
+  workflow_dispatch:
+
+jobs:
+  broadcast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install HeyGen CLI
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: bash .github/scripts/setup-cli.sh
+
+      - name: Generate weekly update video
+        id: generate
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: |
+          DATE=$(date -u +"%B %d, %Y")
+
+          RESULT=$(heygen video-agent create \
+            --prompt "Anthony Abbagnano delivers the weekly Alchemy of Breath update for $DATE. He warmly welcomes the community, shares a brief breathwork tip of the week, mentions any upcoming events or courses, and invites viewers to practice with the community. Personal, grounded tone. 60 seconds. Close with: See you next week. Breathe well." \
+            --avatar-id "${{ secrets.ANTHONY_LOOK_ID }}" \
+            --orientation landscape \
+            --wait \
+            --timeout 25m)
+
+          VIDEO_ID=$(echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('video_id','') or d.get('data',{}).get('id',''))")
+          echo "video_id=$VIDEO_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download video
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: |
+          heygen video download "${{ steps.generate.outputs.video_id }}" \
+            --output-path ./weekly-update.mp4
+
+      - name: Upload to Google Drive
+        env:
+          GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
+          DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.DRIVE_OUTPUT_FOLDER_ID }}
+        run: bash .github/scripts/upload-to-drive.sh ./weekly-update.mp4
+
+      - name: Upload artifact (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-update-${{ github.run_id }}
+          path: "*.mp4"
+          retention-days: 30

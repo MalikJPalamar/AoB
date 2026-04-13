@@ -1,0 +1,81 @@
+name: "Anthony: Create Video"
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Video prompt for Anthony"
+        required: true
+        type: string
+      mode:
+        description: "agent (AI handles layout) or scripted (full control)"
+        required: true
+        default: "agent"
+        type: choice
+        options:
+          - agent
+          - scripted
+      orientation:
+        description: "Video orientation"
+        default: "landscape"
+        type: choice
+        options:
+          - landscape
+          - portrait
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install HeyGen CLI
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: bash .github/scripts/setup-cli.sh
+
+      - name: Generate video
+        id: generate
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: |
+          if [ "${{ inputs.mode }}" = "agent" ]; then
+            RESULT=$(heygen video-agent create \
+              --prompt "${{ inputs.prompt }}" \
+              --avatar-id "${{ secrets.ANTHONY_LOOK_ID }}" \
+              --orientation "${{ inputs.orientation }}" \
+              --wait \
+              --timeout 25m)
+          else
+            RESULT=$(heygen video create --wait -d '{
+              "type": "avatar",
+              "avatar_id": "'${{ secrets.ANTHONY_LOOK_ID }}'",
+              "script": "'"$(echo '${{ inputs.prompt }}' | sed 's/"/\\"/g')"'",
+              "voice_id": "'${{ secrets.ANTHONY_VOICE_ID }}'",
+              "caption": true
+            }')
+          fi
+
+          VIDEO_ID=$(echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('video_id','') or d.get('data',{}).get('id',''))")
+          echo "video_id=$VIDEO_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download video
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: |
+          heygen video download "${{ steps.generate.outputs.video_id }}" \
+            --output-path ./anthony-video.mp4
+
+      - name: Upload to Google Drive
+        env:
+          GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
+          DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.DRIVE_OUTPUT_FOLDER_ID }}
+        run: bash .github/scripts/upload-to-drive.sh ./anthony-video.mp4
+
+      - name: Upload artifact (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: anthony-video-${{ github.run_id }}
+          path: "*.mp4"
+          retention-days: 30

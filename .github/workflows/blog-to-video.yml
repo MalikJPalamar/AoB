@@ -1,0 +1,55 @@
+name: "Anthony: Blog to Video"
+
+on:
+  push:
+    paths:
+      - "content/blog/**/*.md"
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Install HeyGen CLI
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: bash .github/scripts/setup-cli.sh
+
+      - name: Find new or changed blog posts
+        id: blogs
+        run: |
+          FILES=$(git diff --name-only HEAD~1 HEAD -- 'content/blog/' | grep '\.md$' || echo "")
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+          if [ -z "$FILES" ]; then
+            echo "No new blog posts detected."
+          else
+            echo "Found blog posts:"
+            echo "$FILES"
+          fi
+
+      - name: Generate video for each post
+        if: steps.blogs.outputs.files != ''
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          for FILE in ${{ steps.blogs.outputs.files }}; do
+            echo "::group::Processing: $FILE"
+
+            PROMPT=$(bash .github/scripts/generate-prompt.sh "$FILE")
+            echo "Generated prompt:"
+            echo "$PROMPT"
+
+            heygen video-agent create \
+              --prompt "$PROMPT" \
+              --avatar-id "${{ secrets.ANTHONY_LOOK_ID }}" \
+              --orientation landscape \
+              --wait \
+              --timeout 25m
+
+            echo "::endgroup::"
+          done

@@ -1,0 +1,41 @@
+name: "Reusable: Upload to Google Drive"
+
+on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        description: "Name of the artifact to download and upload"
+        required: true
+        type: string
+      drive_folder_id:
+        description: "Override destination Drive folder ID"
+        required: false
+        type: string
+    secrets:
+      GOOGLE_SERVICE_ACCOUNT:
+        required: true
+      DRIVE_OUTPUT_FOLDER_ID:
+        required: true
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ./upload/
+
+      - name: Upload each file to Drive
+        env:
+          GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
+          DRIVE_OUTPUT_FOLDER_ID: ${{ inputs.drive_folder_id || secrets.DRIVE_OUTPUT_FOLDER_ID }}
+        run: |
+          for FILE in ./upload/*; do
+            echo "Uploading: $FILE"
+            bash .github/scripts/upload-to-drive.sh "$FILE"
+          done
