@@ -1,0 +1,54 @@
+{
+  "target_languages": [
+    {
+      "code": "es",
+      "name": "Spanish",
+      "priority": 1,
+      "terminology": {
+        "breathwork": "trabajo de respiración",
+        "facilitator": "facilitador",
+        "Alchemy of Breath": "Alchemy of Breath"
+      }
+    },
+    {
+      "code": "de",
+      "name": "German",
+      "priority": 2,
+      "terminology": {
+        "breathwork": "Atemarbeit",
+        "facilitator": "Facilitator",
+        "Alchemy of Breath": "Alchemy of Breath"
+      }
+    },
+    {
+      "code": "pt",
+      "name": "Portuguese",
+      "priority": 3,
+      "terminology": {
+        "breathwork": "trabalho de respiração",
+        "facilitator": "facilitador",
+        "Alchemy of Breath": "Alchemy of Breath"
+      }
+    },
+    {
+      "code": "fr",
+      "name": "French",
+      "priority": 4,
+      "terminology": {
+        "breathwork": "travail respiratoire",
+        "facilitator": "facilitateur",
+        "Alchemy of Breath": "Alchemy of Breath"
+      }
+    },
+    {
+      "code": "it",
+      "name": "Italian",
+      "priority": 5,
+      "terminology": {
+        "breathwork": "lavoro sul respiro",
+        "facilitator": "facilitatore",
+        "Alchemy of Breath": "Alchemy of Breath"
+      }
+    }
+  ]
+}

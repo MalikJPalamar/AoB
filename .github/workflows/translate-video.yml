@@ -1,0 +1,69 @@
+name: "Anthony: Translate Video"
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: "Public URL of video to translate"
+        required: true
+        type: string
+      languages:
+        description: "Comma-separated languages (e.g. Spanish,German)"
+        required: true
+        default: "Spanish,German"
+        type: string
+      mode:
+        description: "speed or precision"
+        default: "speed"
+        type: choice
+        options:
+          - speed
+          - precision
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install HeyGen CLI
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: bash .github/scripts/setup-cli.sh
+
+      - name: Submit translation
+        id: translate
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: |
+          RESULT=$(heygen video-translate create \
+            --output-languages "${{ inputs.languages }}" \
+            --mode "${{ inputs.mode }}" \
+            --enable-caption \
+            --title "Anthony - Translated" \
+            -d '{
+              "video": { "type": "url", "url": "'"${{ inputs.video_url }}"'" }
+            }')
+
+          echo "$RESULT" | python3 -m json.tool
+          echo "result<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$RESULT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Poll translations until complete
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: |
+          IDS=$(echo '${{ steps.translate.outputs.result }}' | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          ids = data.get('data', {}).get('video_translation_ids', [])
+          print(' '.join(ids))
+          ")
+
+          for ID in $IDS; do
+            echo "::group::Polling translation: $ID"
+            bash .github/scripts/poll-status.sh translation "$ID" 40
+            echo "::endgroup::"
+          done
