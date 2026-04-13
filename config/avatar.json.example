@@ -1,0 +1,8 @@
+{
+  "_comment": "Copy to avatar.json and fill in. avatar.json is gitignored.",
+  "avatar_name": "Presenter Name",
+  "brand_name": "Brand Name",
+  "brand_website": "https://example.com",
+  "training_footage_url": "https://publicly-accessible-url/training.mp4",
+  "consent_video_url": "https://publicly-accessible-url/consent.mp4"
+}

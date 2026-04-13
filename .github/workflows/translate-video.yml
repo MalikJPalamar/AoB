@@ -1,4 +1,4 @@
-name: "Anthony: Translate Video"
+name: "Translate Video"
 
 on:
   workflow_dispatch:
@@ -41,7 +41,7 @@ jobs:
             --output-languages "${{ inputs.languages }}" \
             --mode "${{ inputs.mode }}" \
             --enable-caption \
-            --title "Anthony - Translated" \
+            --title "Translated Video" \
             -d '{
               "video": { "type": "url", "url": "'"${{ inputs.video_url }}"'" }
             }')

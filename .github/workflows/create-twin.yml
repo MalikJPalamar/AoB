@@ -1,0 +1,149 @@
+name: "Create Digital Twin"
+
+on:
+  workflow_dispatch:
+    inputs:
+      training_footage_url:
+        description: "Public URL to training footage (MP4, 2+ min, 720p+)"
+        required: true
+        type: string
+      consent_video_url:
+        description: "Public URL to consent video (MP4)"
+        required: true
+        type: string
+      avatar_name:
+        description: "Name for the avatar"
+        required: true
+        type: string
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install HeyGen CLI
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: bash .github/scripts/setup-cli.sh
+
+      - name: Submit Digital Twin creation
+        id: submit
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: |
+          echo "::group::Submitting Digital Twin creation request"
+
+          RESULT=$(heygen avatar create \
+            --name "${{ inputs.avatar_name }}" \
+            --training-footage-url "${{ inputs.training_footage_url }}" \
+            --consent-video-url "${{ inputs.consent_video_url }}" \
+            2>&1) || {
+            # Fallback: try direct API if CLI subcommand differs
+            echo "CLI command failed, trying direct API..."
+            RESULT=$(curl -s -X POST "https://api.heygen.com/v3/avatars" \
+              -H "X-Api-Key: $HEYGEN_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "training_footage_url": "'"${{ inputs.training_footage_url }}"'",
+                "video_consent_url": "'"${{ inputs.consent_video_url }}"'",
+                "avatar_name": "'"${{ inputs.avatar_name }}"'"
+              }')
+          }
+
+          echo "$RESULT" | python3 -m json.tool 2>/dev/null || echo "$RESULT"
+
+          AVATAR_ID=$(echo "$RESULT" | python3 -c "
+          import sys, json
+          try:
+              d = json.load(sys.stdin)
+              print(d.get('data', {}).get('avatar_id', '') or d.get('data', {}).get('id', ''))
+          except:
+              print('')
+          " 2>/dev/null || echo "")
+
+          echo "::endgroup::"
+
+          if [ -n "$AVATAR_ID" ]; then
+            echo "avatar_id=$AVATAR_ID" >> "$GITHUB_OUTPUT"
+            echo "::notice::Digital Twin submitted! Avatar ID: $AVATAR_ID"
+          else
+            echo "::warning::Could not extract avatar_id from response. Check the output above."
+          fi
+
+      - name: Poll creation status
+        if: steps.submit.outputs.avatar_id != ''
+        env:
+          HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+        run: |
+          AVATAR_ID="${{ steps.submit.outputs.avatar_id }}"
+          TIMEOUT=55  # minutes
+          DEADLINE=$(($(date +%s) + TIMEOUT * 60))
+          INTERVAL=30
+
+          echo "Polling Digital Twin creation status for $AVATAR_ID..."
+
+          while true; do
+            NOW=$(date +%s)
+            if [ "$NOW" -ge "$DEADLINE" ]; then
+              echo "::warning::Polling timed out after ${TIMEOUT}m. The twin may still be processing."
+              echo "::notice::Check status manually: heygen avatar get $AVATAR_ID"
+              exit 0
+            fi
+
+            STATUS_RESULT=$(curl -s "https://api.heygen.com/v3/avatars/$AVATAR_ID" \
+              -H "X-Api-Key: $HEYGEN_API_KEY" 2>/dev/null || echo '{}')
+
+            STATUS=$(echo "$STATUS_RESULT" | python3 -c "
+            import sys, json
+            try:
+                d = json.load(sys.stdin)
+                print(d.get('data', {}).get('status', 'unknown'))
+            except:
+                print('unknown')
+            " 2>/dev/null || echo "unknown")
+
+            REMAINING=$(( (DEADLINE - NOW) / 60 ))
+            echo "  Status: $STATUS (${REMAINING}m remaining)"
+
+            case "$STATUS" in
+              completed|ready)
+                echo ""
+                echo "========================================"
+                echo "Digital Twin created successfully!"
+                echo "Avatar ID: $AVATAR_ID"
+                echo "========================================"
+                echo ""
+                echo "Next steps:"
+                echo "  1. Add AVATAR_LOOK_ID=$AVATAR_ID as a GitHub Secret"
+                echo "  2. Set up voice clone and add AVATAR_VOICE_ID"
+                echo "  3. Add AVATAR_NAME, BRAND_NAME, BRAND_WEBSITE secrets"
+                exit 0
+                ;;
+              failed|error)
+                echo "::error::Digital Twin creation failed"
+                echo "$STATUS_RESULT" | python3 -m json.tool 2>/dev/null || echo "$STATUS_RESULT"
+                exit 1
+                ;;
+              *)
+                sleep "$INTERVAL"
+                ;;
+            esac
+          done
+
+      - name: Summary
+        if: always()
+        run: |
+          AVATAR_ID="${{ steps.submit.outputs.avatar_id }}"
+          if [ -n "$AVATAR_ID" ]; then
+            echo "### Digital Twin Creation" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Avatar ID:** \`$AVATAR_ID\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Name:** ${{ inputs.avatar_name }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Add this as a GitHub Secret:" >> "$GITHUB_STEP_SUMMARY"
+            echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "AVATAR_LOOK_ID=$AVATAR_ID" >> "$GITHUB_STEP_SUMMARY"
+            echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+          fi

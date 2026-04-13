@@ -1,8 +1,8 @@
-name: "Anthony: Weekly Update"
+name: "Weekly Update"
 
 on:
   schedule:
-    - cron: "0 8 * * 1" # Monday 8am UTC (10am CET)
+    - cron: "0 8 * * 1" # Monday 8am UTC
   workflow_dispatch:
 
 jobs:
@@ -21,12 +21,14 @@ jobs:
         id: generate
         env:
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
+          AVATAR_NAME: ${{ secrets.AVATAR_NAME }}
+          BRAND_NAME: ${{ secrets.BRAND_NAME }}
         run: |
           DATE=$(date -u +"%B %d, %Y")
 
           RESULT=$(heygen video-agent create \
-            --prompt "Anthony Abbagnano delivers the weekly Alchemy of Breath update for $DATE. He warmly welcomes the community, shares a brief breathwork tip of the week, mentions any upcoming events or courses, and invites viewers to practice with the community. Personal, grounded tone. 60 seconds. Close with: See you next week. Breathe well." \
-            --avatar-id "${{ secrets.ANTHONY_LOOK_ID }}" \
+            --prompt "$AVATAR_NAME delivers the weekly $BRAND_NAME update for $DATE. They warmly welcome the community, share a brief tip of the week, mention any upcoming events or courses, and invite viewers to practice with the community. Personal, grounded tone. 60 seconds. Close with: See you next week." \
+            --avatar-id "${{ secrets.AVATAR_LOOK_ID }}" \
             --orientation landscape \
             --wait \
             --timeout 25m)

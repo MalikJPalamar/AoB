@@ -1,7 +1,7 @@
 #!/bin/bash
 # Convert blog post content into a HeyGen video prompt via Claude API
 # Usage: ./generate-prompt.sh <blog_file_path>
-# Requires: ANTHROPIC_API_KEY env var
+# Requires: ANTHROPIC_API_KEY, AVATAR_NAME, BRAND_NAME, BRAND_WEBSITE env vars
 set -euo pipefail
 
 BLOG_FILE="${1:?Usage: generate-prompt.sh <blog_file_path>}"
@@ -19,23 +19,27 @@ RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
   -H "content-type: application/json" \
   -H "anthropic-version: 2023-06-01" \
   -d "$(python3 -c "
-import json, sys
+import json, sys, os
 content = sys.stdin.read()
+avatar = os.environ.get('AVATAR_NAME', 'the presenter')
+brand = os.environ.get('BRAND_NAME', 'the brand')
+website = os.environ.get('BRAND_WEBSITE', '')
+cta = f'End with a call to action to visit {website}.' if website else ''
 print(json.dumps({
     'model': 'claude-sonnet-4-20250514',
     'max_tokens': 1024,
     'messages': [{
         'role': 'user',
-        'content': '''Convert this blog post into a 60-second HeyGen Video Agent prompt.
+        'content': f'''Convert this blog post into a 60-second HeyGen Video Agent prompt.
 
-The presenter is Anthony Abbagnano, founder of Alchemy of Breath.
-Tone: warm, knowledgeable, grounded, passionate about breathwork.
+The presenter is {avatar}, founder of {brand}.
+Tone: warm, knowledgeable, grounded, passionate.
 Extract the 3 most compelling points.
-End with a call to action to visit alchemyofbreath.com.
+{cta}
 Output ONLY the prompt text, nothing else.
 
 Blog post:
-''' + content
+{content}'''
     }]
 }))
 " <<< "$CONTENT")")

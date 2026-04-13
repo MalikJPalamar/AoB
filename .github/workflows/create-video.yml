@@ -1,10 +1,10 @@
-name: "Anthony: Create Video"
+name: "Create Video"
 
 on:
   workflow_dispatch:
     inputs:
       prompt:
-        description: "Video prompt for Anthony"
+        description: "Video prompt"
         required: true
         type: string
       mode:
@@ -43,16 +43,16 @@ jobs:
           if [ "${{ inputs.mode }}" = "agent" ]; then
             RESULT=$(heygen video-agent create \
               --prompt "${{ inputs.prompt }}" \
-              --avatar-id "${{ secrets.ANTHONY_LOOK_ID }}" \
+              --avatar-id "${{ secrets.AVATAR_LOOK_ID }}" \
               --orientation "${{ inputs.orientation }}" \
               --wait \
               --timeout 25m)
           else
             RESULT=$(heygen video create --wait -d '{
               "type": "avatar",
-              "avatar_id": "'${{ secrets.ANTHONY_LOOK_ID }}'",
+              "avatar_id": "'${{ secrets.AVATAR_LOOK_ID }}'",
               "script": "'"$(echo '${{ inputs.prompt }}' | sed 's/"/\\"/g')"'",
-              "voice_id": "'${{ secrets.ANTHONY_VOICE_ID }}'",
+              "voice_id": "'${{ secrets.AVATAR_VOICE_ID }}'",
               "caption": true
             }')
           fi
@@ -65,17 +65,17 @@ jobs:
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
         run: |
           heygen video download "${{ steps.generate.outputs.video_id }}" \
-            --output-path ./anthony-video.mp4
+            --output-path ./output-video.mp4
 
       - name: Upload to Google Drive
         env:
           GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
           DRIVE_OUTPUT_FOLDER_ID: ${{ secrets.DRIVE_OUTPUT_FOLDER_ID }}
-        run: bash .github/scripts/upload-to-drive.sh ./anthony-video.mp4
+        run: bash .github/scripts/upload-to-drive.sh ./output-video.mp4
 
       - name: Upload artifact (backup)
         uses: actions/upload-artifact@v4
         with:
-          name: anthony-video-${{ github.run_id }}
+          name: video-${{ github.run_id }}
           path: "*.mp4"
           retention-days: 30

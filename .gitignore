@@ -2,6 +2,7 @@
 *.env
 !*.env.example
 service-account*.json
+config/avatar.json
 
 # Generated videos
 *.mp4

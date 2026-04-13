@@ -1,4 +1,4 @@
-name: "Anthony: Blog to Video"
+name: "Blog to Video"
 
 on:
   push:
@@ -36,6 +36,9 @@ jobs:
         env:
           HEYGEN_API_KEY: ${{ secrets.HEYGEN_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AVATAR_NAME: ${{ secrets.AVATAR_NAME }}
+          BRAND_NAME: ${{ secrets.BRAND_NAME }}
+          BRAND_WEBSITE: ${{ secrets.BRAND_WEBSITE }}
         run: |
           for FILE in ${{ steps.blogs.outputs.files }}; do
             echo "::group::Processing: $FILE"
@@ -46,7 +49,7 @@ jobs:
 
             heygen video-agent create \
               --prompt "$PROMPT" \
-              --avatar-id "${{ secrets.ANTHONY_LOOK_ID }}" \
+              --avatar-id "${{ secrets.AVATAR_LOOK_ID }}" \
               --orientation landscape \
               --wait \
               --timeout 25m
